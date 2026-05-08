@@ -158,8 +158,6 @@ export default function CreateAluno() {
       // LIMPAR ERROS
       setFieldErrors({})
 
-      console.log(`${dataNascimento}T12:00:00`)
-
       const payload = { 
         nome,
         dataNascimento: new Date(`${dataNascimento}T12:00:00`).toISOString(),

@@ -18,10 +18,32 @@ export default function Home() {
   const [loading, setLoading] =
     useState(false)
 
+  // MODAL DELETE
+  const [showDeleteModal, setShowDeleteModal] =
+    useState(false)
+
+  const [alunoParaExcluir, setAlunoParaExcluir] =
+    useState(null)
+
+  // NOTIFICAÇÃO
+  const [notification, setNotification] = useState(null)
+
+  function showNotification(type, message) {
+
+    setNotification({
+      type,
+      message
+    })
+
+    setTimeout(() => {
+      setNotification(null)
+    }, 4000)
+  }
+
+
   // FORMATA DATA SEM TIMEZONE
   const formatar = (dataString) => {
 
-    // sem data
     if (!dataString) {
       return '-'
     }
@@ -30,20 +52,17 @@ export default function Home() {
 
       let data
 
-      // caso venha ISO
       if (dataString.includes('T')) {
 
         data = new Date(dataString)
 
       } else {
 
-        // evita problema timezone
         data = new Date(
           dataString + 'T12:00:00'
         )
       }
 
-      // valida data
       if (!isValid(data)) {
         return '-'
       }
@@ -68,13 +87,16 @@ export default function Home() {
 
       try {
 
-        const urlApi = anoMatricula == "todos" ? '/alunos' : `/alunos/ano/?anoMatricula=${anoMatricula}`
+        const urlApi =
+          anoMatricula == "todos"
+            ? '/alunos'
+            : `/alunos/ano/?anoMatricula=${anoMatricula}`
 
         setLoading(true)
+
         const response = await api.get(
           `${urlApi}`
         )
-        console.log(response)
 
         setAnosDisponiveis(
           response.data.anosDisponiveis || []
@@ -106,9 +128,187 @@ export default function Home() {
     )
   }
 
+  function openDeleteModal(aluno) {
+
+    setAlunoParaExcluir(aluno)
+
+    setShowDeleteModal(true)
+  }
+
+  function closeDeleteModal() {
+
+    setAlunoParaExcluir(null)
+
+    setShowDeleteModal(false)
+  }
+
+  async function confirmDelete() {
+
+    try {
+
+      await api.delete(
+        `/alunos/deletar/${alunoParaExcluir.id}`
+      )
+
+      showNotification(
+        'success',
+        'Aluno deletado com sucesso!'
+      )
+
+      setAlunos(prev =>
+        prev.filter(
+          aluno =>
+            aluno.id !== alunoParaExcluir.id
+        )
+      )
+
+      closeDeleteModal()
+      
+    } catch (error) {
+      
+      console.log(error)
+      
+      showNotification(
+        'error',
+        'Erro ao deletar Aluno.'
+      )
+      
+      closeDeleteModal()
+    }
+  }
+
   return (
 
     <div className='container'>
+
+      {notification && (
+
+        <div
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            padding: '16px 20px',
+            borderRadius: '12px',
+            color: 'white',
+            fontWeight: 'bold',
+            zIndex: 9999,
+            minWidth: '320px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+
+            background:
+              notification.type === 'success'
+                ? '#16a34a'
+                : '#dc2626'
+          }}
+        >
+
+          {notification.message}
+
+        </div>
+
+      )}
+    
+
+      {/* MODAL DELETE */}
+
+      {showDeleteModal && (
+
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+        >
+
+          <div
+            style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '20px',
+              width: '100%',
+              maxWidth: '420px',
+              boxShadow:
+                '0 10px 25px rgba(0,0,0,0.2)'
+            }}
+          >
+
+            <h2
+              style={{
+                marginBottom: '12px'
+              }}
+            >
+              🗑 Excluir aluno
+            </h2>
+
+            <p
+              style={{
+                color: '#6b7280',
+                lineHeight: '1.5'
+              }}
+            >
+
+              Deseja realmente excluir o aluno:
+
+              <br />
+              <br />
+
+              <strong>
+                {alunoParaExcluir?.nome}
+              </strong>
+
+            </p>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                marginTop: '30px'
+              }}
+            >
+
+              <button
+                onClick={closeDeleteModal}
+                style={{
+                  border: 'none',
+                  background: '#e5e7eb',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                onClick={confirmDelete}
+                style={{
+                  border: 'none',
+                  background: '#dc2626',
+                  color: 'white',
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                Confirmar exclusão
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
 
       <div className='header'>
 
@@ -152,13 +352,13 @@ export default function Home() {
           >
 
             <option
-                key={'todos'}
-                value={'todos'}
-              >
+              key={'todos'}
+              value={'todos'}
+            >
 
-                Todos os anos
+              Todos os anos
 
-              </option>
+            </option>
 
             {anosDisponiveis.map(ano => (
 
@@ -231,6 +431,8 @@ export default function Home() {
 
                 <th>Responsável</th>
 
+                <th>Ações</th>
+
               </tr>
 
             </thead>
@@ -254,40 +456,60 @@ export default function Home() {
                       aluno.dataNascimento
                     )}
                   </td>
-                  
+
                   <td>
 
-                  <Link
-                    to={`/responsaveis/${aluno.responsavel.id}`}
-                    style={{
-                      position: 'relative',
-                      color: '#2563eb',
-                      textDecoration: 'none',
-                      fontWeight: '600'
-                    }}
+                    <Link
+                      to={`/responsaveis/${aluno.responsavel.id}`}
+                      style={{
+                        position: 'relative',
+                        color: '#2563eb',
+                        textDecoration: 'none',
+                        fontWeight: '600'
+                      }}
+                      className='responsavel-link'
+                    >
 
-                    className='responsavel-link'
-                  >
+                      {aluno.responsavel.nome}
 
-                    {aluno.responsavel.nome}
+                      <span className='tooltip'>
+                        👀 Ver alunos do responsável
+                      </span>
 
-                    <span className='tooltip'>
-                      👀 Ver alunos do responsável
-                    </span>
+                    </Link>
 
-                  </Link>
+                    <br />
 
-                  <br />
+                    <small
+                      style={{
+                        color: '#6b7280'
+                      }}
+                    >
+                      {aluno.responsavel.email}
+                    </small>
 
-                  <small
-                    style={{
-                      color: '#6b7280'
-                    }}
-                  >
-                    {aluno.responsavel.email}
-                  </small>
+                  </td>
 
-                </td>
+                  <td>
+
+                    <button
+                      onClick={() =>
+                        openDeleteModal(aluno)
+                      }
+                      style={{
+                        background: '#dc2626',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: '600'
+                      }}
+                    >
+                      🗑 Excluir
+                    </button>
+
+                  </td>
 
                 </tr>
 
